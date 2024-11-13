@@ -4,9 +4,9 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from recipe import Recipe
+from db.recipe_db import Recipe
 
-class Recipe_scrapper():
+class Recipe_scraper():
 
     BASE_URL = 'https://www.allrecipes.com'
     def __init__(self,search_mode,keyword=""):
@@ -17,7 +17,7 @@ class Recipe_scrapper():
 
     def init_research(self, search_mode): 
         if search_mode == 1: 
-            self.page_url= f'{self.BASE_URL}/search?{self.keyword}'
+            self.page_url= f'{self.BASE_URL}/search?q={self.keyword}'
         else: 
             self.page_url = self.BASE_URL
 
@@ -48,11 +48,11 @@ class Recipe_scrapper():
 
     def get_recipe_obj(self, url): 
         self.driver.get(url)
-        if self.is_recipe()!= -1: 
+        if "/recipe/" in url :  
             recipe = {
                 'title': self.driver.find_element(By.TAG_NAME, 'h1').text, 
                 'nb_star': self.driver.find_element(By.CSS_SELECTOR, '#mm-recipes-review-bar__rating_1-0').text, 
-                'description': self.driver.find_element(By.CSS_SELECTOR, ".article-subheading.type--dog").text,
+                'description': self.driver.find_element(By.CSS_SELECTOR, ".article-subheading.text-body-100").text,
                 'info_prep': self.__extract_info_prep(), 
                 'ingredients_list': [i.text for i in self.driver.find_element(By.CLASS_NAME, 'mm-recipes-structured-ingredients__list').find_elements(By.TAG_NAME, "p")], 
                 'direction': [i.text for i in self.driver.find_element(By.ID, 'mm-recipes-steps__content_1-0').find_elements(By.CSS_SELECTOR,'li > p')],
@@ -98,3 +98,24 @@ class Recipe_scrapper():
         
     def close(self): 
         self.driver.quit() 
+    
+    @classmethod
+    def scrape_recipes(cls): 
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        }
+        user_input = int(input("""
+                            1. Cherchez une recette 
+                            2. Recette tendance 
+        """))
+        if user_input == 1: 
+            recipe_scp = Recipe_scraper(user_input,'chicken')
+            recipe_scp.collect_recipes()
+            r = recipe_scp.get_recipe("Chicken Fried Chicken")
+
+        else : 
+            recipe_scp = Recipe_scraper(user_input)
+            recipe_scp.collect_recipes()
+
+            
+        recipe_scp.close()
