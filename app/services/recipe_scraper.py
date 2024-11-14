@@ -5,13 +5,14 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from db.recipe_db import Recipe
+from utils import is_recipe
 
 class Recipe_scraper():
 
     BASE_URL = 'https://www.allrecipes.com'
+    recipes_links = []
     def __init__(self,search_mode,keyword=""):
         self.keyword = keyword
-        self.recipes_links = []
         self.init_research(search_mode)
         self._init_driver()
 
@@ -25,30 +26,28 @@ class Recipe_scraper():
         service = Service(ChromeDriverManager().install())
         self.driver = webdriver.Chrome(service=service)
 
-    def collect_recipes(self):
+    def collect_recipes(self, input_choice):
         page_url = self.page_url
         self.driver.get(page_url)
+        selector = 'a[id^="mntl-card-list-items"]' if input_choice == 2 else 'a[id^="mntl-card-list-card--extendable"]'
         WebDriverWait(self.driver, 30).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[id="onetrust-reject-all-handler"]'))).click()
-        for e in self.driver.find_elements(By.CSS_SELECTOR,'a[id^="mntl-card-list-items"]'):
+        for e in self.driver.find_elements(By.CSS_SELECTOR,selector):
             self.recipes_links.append(
                 {
                     'title' : e.find_element(By.CSS_SELECTOR,'.card__title-text').text,
                     'url' : e.get_attribute('href')
                 }
             )
-        print(self.recipes_links)
-
-    def is_recipe(self)-> int: 
-        try: 
-            self.driver.find_element(By.CLASS_NAME, 'mm-recipes-structured-ingredients__list') 
-            return 0 
-        except: 
-            print(f"'{self.driver.find_element(By.CSS_SELECTOR, 'h1').text}' is not a recipe! Sorry")
-            return -1
-
+        # print(self.recipes_links)
+    
+    @classmethod
+    def get_only_recipes(cls):
+        cls.recipes_links = [recipe for recipe in cls.recipes_links if recipe.get('url') and is_recipe(recipe.get('url'))]
+        return cls.recipes_links
+    
     def get_recipe_obj(self, url): 
         self.driver.get(url)
-        if "/recipe/" in url :  
+        if is_recipe(url) :  
             recipe = {
                 'title': self.driver.find_element(By.TAG_NAME, 'h1').text, 
                 'nb_star': self.driver.find_element(By.CSS_SELECTOR, '#mm-recipes-review-bar__rating_1-0').text, 
@@ -77,7 +76,7 @@ class Recipe_scraper():
         for index, recipe in enumerate(self.recipes_links):
             if recipe['title'] == recipe_title:
                 return index
-        print(f"Recipe titled '{recipe_title}' not found.")
+        # print(f"Recipe titled '{recipe_title}' not found.")
         return -1
 
     def get_recipe(self,recipe_title): 
@@ -93,7 +92,7 @@ class Recipe_scraper():
                                 recipe_obj.get('nutrition_fact').get('calories'), recipe_obj.get('nutrition_fact').get('fat'), 
                                 recipe_obj.get('nutrition_fact').get('carbs'), recipe_obj.get('nutrition_fact').get('protein')
                                 )
-                print(recipe)
+                # print(recipe)
                 return recipe
         
     def close(self): 
@@ -110,12 +109,12 @@ class Recipe_scraper():
         """))
         if user_input == 1: 
             recipe_scp = Recipe_scraper(user_input,'chicken')
-            recipe_scp.collect_recipes()
-            r = recipe_scp.get_recipe("Chicken Fried Chicken")
-
+            recipe_scp.collect_recipes(1)
+            # r = recipe_scp.get_recipe("Chicken Fried Chicken")
         else : 
             recipe_scp = Recipe_scraper(user_input)
-            recipe_scp.collect_recipes()
-
-            
+            recipe_scp.collect_recipes(2)    
+        only_recipes = Recipe_scraper.get_only_recipes()
         recipe_scp.close()
+
+        return only_recipes
